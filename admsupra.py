@@ -7,20 +7,19 @@ import plotly.express as px
 st.set_page_config(page_title="BI Administrativo - Suprasoft", layout="wide")
 
 # --- Cabeçalho com Logos ---
-# Dica: Substitua 'logo_supra.png' e 'logo_supramais.png' pelo nome exato dos arquivos das imagens que você tem na pasta
-col1, col_espaco, col2 = st.columns([1, 4, 1])
-with col1:
+col_logo1, col_espaco, col_logo2 = st.columns([1, 4, 1])
+with col_logo1:
     try:
         st.image("logo_supra.png", width=150)
     except:
-        st.write("[Logo Supra]")
-with col2:
+        st.write("[Logo Suprasoft]")
+with col_logo2:
     try:
         st.image("logo_supramais.png", width=150)
     except:
         st.write("[Logo SupraMAIS]")
 
-st.title("📊 BI Administrativo")
+st.title("📊 Painel Administrativo")
 st.markdown("---")
 
 # --- Conexão com o Banco de Dados ---
@@ -36,52 +35,61 @@ def init_connection():
 
 conn = init_connection()
 
-# Função para executar consultas (cache de 5 minutos)
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300) # Cache de 5 minutos
 def run_query(query):
     return pd.read_sql(query, conn)
 
 # --- Consultas SQL ---
-# 1. Contas a Receber (somente em aberto: sem data_quitacao)
-# Obs: Ajuste os nomes das colunas ('cliente', 'valor', 'vencimento') conforme existem na sua view
+# Nota: Substitua 'data_vencimento', 'valor' e 'cliente' pelos nomes exatos das colunas na sua view, se forem diferentes.
+
+# 1. Contas a Receber (Apenas em aberto)
 query_receber = """
-    SELECT * 
-    FROM sgr_conta_receber 
+    SELECT 
+        *,
+        CONVERT(VARCHAR, data_vencimento, 103) AS data_vencimento_br 
+    FROM sgr_conta_receber
     WHERE data_quitacao IS NULL
 """
-df_receber = run_query(query_receber)
+try:
+    df_receber = run_query(query_receber)
+except Exception as e:
+    st.error(f"Erro ao consultar sgr_conta_receber: {e}")
+    df_receber = pd.DataFrame()
 
 # 2. Últimas Notas Emitidas
-# Obs: Ajuste as colunas conforme a sua view
 query_notas = """
-    SELECT * 
+    SELECT 
+        *,
+        CONVERT(VARCHAR, data_emissao, 103) AS data_emissao_br 
     FROM sgrp_ultimas_notas_clientes
 """
-df_notas = run_query(query_notas)
-
+try:
+    df_notas = run_query(query_notas)
+except Exception as e:
+    st.error(f"Erro ao consultar sgrp_ultimas_notas_clientes: {e}")
+    df_notas = pd.DataFrame()
 
 # --- Visuais Dinâmicos ---
 
-# Visão 1: Contas a Receber
-st.subheader("Titulos em Aberto (Contas a Receber)")
+# Visão 1: Contas a Receber em Aberto
+st.subheader("Títulos em Aberto (Contas a Receber)")
 
 if not df_receber.empty:
-    # Caso as colunas tenham nomes diferentes na view da Supra, precisaremos alterar 'valor' e 'cliente' abaixo
-    col_metric1, col_metric2 = st.columns(2)
+    col_met1, col_met2 = st.columns(2)
     
-    # Tenta somar a coluna de valor (substitua 'valor' pelo nome real da coluna na view)
+    # Tenta somar a coluna de valor (ajuste 'valor' para o nome correto da sua view)
     try:
         total_aberto = df_receber['valor'].sum()
-        col_metric1.metric("Total em Aberto", f"R$ {total_aberto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        col_met1.metric("Total em Aberto", f"R$ {total_aberto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     except KeyError:
-        col_metric1.warning("Coluna de valor não encontrada na view.")
+        col_met1.warning("Coluna de 'valor' não encontrada para totalização.")
         
-    col_metric2.metric("Qtd. de Títulos", len(df_receber))
+    col_met2.metric("Qtd. de Títulos", len(df_receber))
     
     with st.expander("Visualizar Tabela de Contas a Receber", expanded=True):
         st.dataframe(df_receber, use_container_width=True)
 else:
-    st.success("Não há contas a receber em aberto no momento.")
+    st.success("Nenhuma conta a receber em aberto no momento.")
 
 st.markdown("---")
 
@@ -89,7 +97,7 @@ st.markdown("---")
 st.subheader("Últimas Notas Emitidas")
 
 if not df_notas.empty:
-    with st.expander("Visualizar Últimas Notas", expanded=True):
-        st.dataframe(df_notas, use_container_width=True)
+    with st.expander("Visualizar Tabela de Últimas Notas", expanded=True):
+         st.dataframe(df_notas, use_container_width=True)
 else:
-    st.info("Nenhuma nota encontrada.")
+    st.info("Nenhuma nota recente encontrada.")
