@@ -1,5 +1,5 @@
 import streamlit as st
-import pyodbc
+import pymssql
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
@@ -53,12 +53,17 @@ st.markdown("""
 # --- Sistema de Cache e Conexão ---
 @st.cache_resource
 def init_connection():
-    return pyodbc.connect(
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        f"SERVER={st.secrets['database']['server']};"
-        f"DATABASE={st.secrets['database']['database']};"
-        f"UID={st.secrets['database']['username']};"
-        f"PWD={st.secrets['database']['password']}"
+    # Separa o IP e a porta que estão juntos no secrets.toml
+    servidor = st.secrets['database']['server'].split(',')
+    ip = servidor[0]
+    porta = servidor[1] if len(servidor) > 1 else "1433"
+    
+    return pymssql.connect(
+        server=ip,
+        port=porta,
+        user=st.secrets['database']['username'],
+        password=st.secrets['database']['password'],
+        database=st.secrets['database']['database']
     )
 
 conn = init_connection()
