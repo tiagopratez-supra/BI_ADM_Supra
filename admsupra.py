@@ -2,7 +2,7 @@ import streamlit as st
 import pymssql
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # --- Configuração da Página ---
 st.set_page_config(page_title="BI Administrativo - Suprasoft", layout="wide", initial_sidebar_state="collapsed")
@@ -80,19 +80,19 @@ conn = init_connection()
 def run_query(query):
     return pd.read_sql(query, conn)
 
-# Função para registrar a hora exata da última consulta
+# Função para registrar a hora exata ajustada para o Fuso de Brasília (UTC-3)
 @st.cache_data(ttl=300)
 def get_update_time():
-    return datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
+    fuso_br = timezone(timedelta(hours=-3))
+    return datetime.now(fuso_br).strftime("%d/%m/%Y às %H:%M:%S")
 
-# --- Cabeçalho Ajustado (Proporções e Alinhamentos) ---
-# Usando colunas bem distribuídas para acomodar logos e botão
+# --- Cabeçalho Ajustado ---
 col_logo1, col_titulo, col_att, col_logo2 = st.columns([1.5, 5.5, 2, 1.5])
 
 with col_logo1:
-    st.markdown("<br>", unsafe_allow_html=True) # Espaçamento para alinhar verticalmente
+    st.markdown("<br>", unsafe_allow_html=True)
     try:
-        st.image("logo_supra.png", width=140) # Aumentada para equilibrar com a da SupraMAIS
+        st.image("logo_supra.png", width=140)
     except:
         st.write("[Logo Suprasoft]")
         
@@ -104,13 +104,11 @@ with col_att:
     if st.button("🔄 Atualizar Dados", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-    # Texto de atualização colado ao botão para não parecer "solto"
     st.markdown(f"<p style='text-align: center; font-size: 0.80rem; color: #a0a0a5; margin-top: -10px;'>Atualizado: {get_update_time()}</p>", unsafe_allow_html=True)
 
 with col_logo2:
     st.markdown("<br>", unsafe_allow_html=True)
     try:
-        # Removido o HTML e usado o st.image nativo (tamanho reduzido para não ofuscar)
         st.image("logo_supramais.png", width=120) 
     except:
         st.write("[Logo SupraMAIS]")
@@ -163,31 +161,29 @@ with aba_cr:
         
         lista_meses = sorted(df_receber['mes_vencimento'].dropna().unique().tolist())
 
-        # Filtros de Tempo (Linha 1)
+        # Filtros de Tempo
         col_t1, col_t2, col_t3 = st.columns(3)
         anos_selecionados = col_t1.multiselect("Ano de Vencimento", options=lista_anos, default=ano_padrao, placeholder="Foco no ano corrente")
         meses_selecionados = col_t2.multiselect("Mês de Vencimento", options=lista_meses, placeholder="Selecione os meses...")
         periodo_selecionado = col_t3.date_input("Período Exato (Data de Vencimento)", value=[], format="DD/MM/YYYY", help="Selecione uma data inicial e uma data final")
 
-        # Filtros de Categoria (Linha 2)
+        # Filtros de Categoria
         col_f1, col_f2, col_f3 = st.columns(3)
         clientes_selecionados = col_f1.multiselect("Cliente", options=df_receber['Cliente'].dropna().unique().tolist(), placeholder="Todos os clientes...")
         formas_selecionadas = col_f2.multiselect("Forma de Cobrança", options=df_receber['Forma_Cobranca'].dropna().unique().tolist(), placeholder="Todas as formas...")
         tipos_selecionados = col_f3.multiselect("Tipo de Pedido", options=df_receber['Tipo_Pedido'].dropna().unique().tolist(), placeholder="Todos os tipos...")
         
-        # Filtro de Busca (Linha 3)
+        # Filtro de Busca
         busca_descricao = st.text_input("Buscar palavra-chave na Descrição do Pedido:", placeholder="Ex: treinamento, licença...")
         
         # Aplicando os filtros
         df_cr_filtrado = df_receber.copy()
         
-        # Filtros de Ano e Mês
         if anos_selecionados:
             df_cr_filtrado = df_cr_filtrado[df_cr_filtrado['ano_vencimento'].isin(anos_selecionados)]
         if meses_selecionados:
             df_cr_filtrado = df_cr_filtrado[df_cr_filtrado['mes_vencimento'].isin(meses_selecionados)]
             
-        # Filtro de Período Exato (Calendário)
         if len(periodo_selecionado) == 2:
             data_inicio, data_fim = periodo_selecionado
             df_cr_filtrado = df_cr_filtrado[(df_cr_filtrado['Data_Vencimento'].dt.date >= data_inicio) & (df_cr_filtrado['Data_Vencimento'].dt.date <= data_fim)]
@@ -195,7 +191,6 @@ with aba_cr:
             data_unica = periodo_selecionado[0]
             df_cr_filtrado = df_cr_filtrado[df_cr_filtrado['Data_Vencimento'].dt.date == data_unica]
 
-        # Restante dos Filtros
         if clientes_selecionados:
             df_cr_filtrado = df_cr_filtrado[df_cr_filtrado['Cliente'].isin(clientes_selecionados)]
         if formas_selecionadas:
@@ -256,7 +251,6 @@ with aba_cr:
 with aba_notas:
     if not df_notas.empty:
         
-        # Função para verificar se a linha possui data preenchida
         def verificar_se_tem_nota(nfe, nfse):
             tem_nfe = pd.notna(nfe) and str(nfe).strip() not in ['', 'None', 'NaT']
             tem_nfse = pd.notna(nfse) and str(nfse).strip() not in ['', 'None', 'NaT']
