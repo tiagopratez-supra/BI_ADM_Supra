@@ -17,7 +17,7 @@ st.markdown("""
             text-rendering: optimizeLegibility !important;
         }
         
-        /* Ajuste de Margens (Mais compacto) */
+        /* Ajuste de Margens */
         .block-container {
             padding-top: 1.5rem !important;
             padding-bottom: 1rem !important;
@@ -36,16 +36,25 @@ st.markdown("""
             border-left: 4px solid #f95d24; 
         }
         
-        /* Abas com tamanho elegante para Notebooks */
+        /* Abas */
         button[data-baseweb="tab"] p {
             font-size: 1.1rem !important;
             font-weight: 600 !important;
         }
         
-        /* Botão de atualizar mais discreto */
+        /* Botão de atualizar mais integrado ao layout */
         .stButton button {
             width: 100%;
-            padding: 2px 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #444;
+            background-color: transparent;
+            transition: all 0.3s ease;
+        }
+        .stButton button:hover {
+            border-color: #f95d24;
+            color: #f95d24;
+            background-color: rgba(249, 93, 36, 0.1);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -53,7 +62,6 @@ st.markdown("""
 # --- Sistema de Cache e Conexão ---
 @st.cache_resource
 def init_connection():
-    # Separa o IP e a porta que estão juntos no secrets.toml
     servidor = st.secrets['database']['server'].split(',')
     ip = servidor[0]
     porta = servidor[1] if len(servidor) > 1 else "1433"
@@ -72,17 +80,19 @@ conn = init_connection()
 def run_query(query):
     return pd.read_sql(query, conn)
 
-# Função para registrar a hora exata da última consulta ao banco
+# Função para registrar a hora exata da última consulta
 @st.cache_data(ttl=300)
 def get_update_time():
     return datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
 
-# --- Cabeçalho Ajustado ---
-col_logo1, col_titulo, col_att, col_logo2 = st.columns([1, 6, 2, 1])
+# --- Cabeçalho Ajustado (Proporções e Alinhamentos) ---
+# Usando colunas bem distribuídas para acomodar logos e botão
+col_logo1, col_titulo, col_att, col_logo2 = st.columns([1.5, 5.5, 2, 1.5])
 
 with col_logo1:
+    st.markdown("<br>", unsafe_allow_html=True) # Espaçamento para alinhar verticalmente
     try:
-        st.image("logo_supra.png", width=85)
+        st.image("logo_supra.png", width=140) # Aumentada para equilibrar com a da SupraMAIS
     except:
         st.write("[Logo Suprasoft]")
         
@@ -91,24 +101,19 @@ with col_titulo:
 
 with col_att:
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔄 Atualizar Dados"):
+    if st.button("🔄 Atualizar Dados", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-    st.caption(f"Última atualização: {get_update_time()}")
+    # Texto de atualização colado ao botão para não parecer "solto"
+    st.markdown(f"<p style='text-align: center; font-size: 0.80rem; color: #a0a0a5; margin-top: -10px;'>Atualizado: {get_update_time()}</p>", unsafe_allow_html=True)
 
 with col_logo2:
+    st.markdown("<br>", unsafe_allow_html=True)
     try:
-        st.markdown(
-            """
-            <div style="display: flex; justify-content: flex-end;">
-                <img src="app/static/logo_supramais.png" width="85" onerror="this.style.display='none'">
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-        st.image("logo_supramais.png", width=85)
+        # Removido o HTML e usado o st.image nativo (tamanho reduzido para não ofuscar)
+        st.image("logo_supramais.png", width=120) 
     except:
-        pass
+        st.write("[Logo SupraMAIS]")
 
 st.markdown("---")
 
@@ -125,7 +130,6 @@ query_receber = """
 """
 try:
     df_receber = run_query(query_receber)
-    # Garantir que a coluna de data seja reconhecida como datetime no Pandas para o filtro de calendário
     df_receber['Data_Vencimento'] = pd.to_datetime(df_receber['Data_Vencimento'], errors='coerce')
 except Exception as e:
     st.error(f"Erro ao consultar sgr_conta_receber_pedidos: {e}")
